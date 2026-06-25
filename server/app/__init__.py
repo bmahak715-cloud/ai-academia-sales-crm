@@ -11,18 +11,46 @@ db = SQLAlchemy()
 
 def create_app():
     app = Flask(__name__)
-    app.config["SECRET_KEY"] = os.getenv("SECRET_KEY", "academia-crm-dev-secret-key")
-    app.config["SQLALCHEMY_DATABASE_URI"] = os.getenv(
-        "DATABASE_URL", "sqlite:///academia_crm.db"
-    )
-    app.config["SQLALCHEMY_TRACK_MODIFICATIONS"] = False
-    app.config["SESSION_COOKIE_SAMESITE"] = "Lax"
-    app.config["SESSION_COOKIE_HTTPONLY"] = True
 
-    CORS(app, supports_credentials=True, origins=[
+    database_url = os.getenv("DATABASE_URL", "sqlite:///academia_crm.db")
+
+    if database_url.startswith("postgres://"):
+        database_url = database_url.replace(
+            "postgres://",
+            "postgresql://",
+            1
+        )
+
+    frontend_url = os.getenv("FRONTEND_URL", "http://localhost:5173")
+    is_production = os.getenv("FLASK_ENV") == "production"
+
+    app.config["SECRET_KEY"] = os.getenv(
+        "SECRET_KEY",
+        "academia-crm-dev-secret-key"
+    )
+
+    app.config["SQLALCHEMY_DATABASE_URI"] = database_url
+    app.config["SQLALCHEMY_TRACK_MODIFICATIONS"] = False
+
+    app.config["SESSION_COOKIE_HTTPONLY"] = True
+    app.config["SESSION_COOKIE_SECURE"] = is_production
+    app.config["SESSION_COOKIE_SAMESITE"] = (
+        "None" if is_production else "Lax"
+    )
+
+    allowed_origins = [
         "http://localhost:5173",
         "http://127.0.0.1:5173",
-    ])
+    ]
+
+    if frontend_url not in allowed_origins:
+        allowed_origins.append(frontend_url)
+
+    CORS(
+        app,
+        supports_credentials=True,
+        origins=allowed_origins
+    )
 
     db.init_app(app)
 
